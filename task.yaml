@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    creationTimestamp: null
+    labels:
+       app: wordpress
+    name: wordpress
+spec:
+    replicas: 2
+    selector:
+      matchLabels:
+        app: wordpress
+    strategy: {}
+    template:
+      metadata:
+        creationTimestamp: null
+        labels:
+          app: wordpress
+      spec:
+        containers:
+        - image: wordpress
+          name: wordpress
+          resources: {}
+status: {}
+# kubectl create deployment wordpress --image=wordpress --dry-run=client -o yaml > wordpress.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+    creationTimestamp: "2020-07-01T13:55:54Z"
+    labels:
+      app: wordpress
+    name: wordpress-nodeport
+    namespace: default
+    resourceVersion: "835465"
+    selfLink: /api/v1/namespaces/default/services/wordpress-nodeport
+    uid: 94f1284a-bba2-11ea-a3fb-42010a8000bc
+spec:
+    clusterIP: 10.0.0.14
+    externalTrafficPolicy: Cluster
+    ports:
+    - nodePort: 31480
+      port: 80
+      protocol: TCP
+      targetPort: 80
+    selector:
+      app: wordpress
+    sessionAffinity: None
+    type: NodePort
+status:
+      loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: mysql-service
+    labels:
+      app: mysql
+spec:
+    ports:
+    - port: 3306
+      name: mysql
+    clusterIP: None
+    selector:
+      app: mysql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+    name: mysql
+spec:
+    serviceName: "mysql-service"
+    replicas: 2
+    selector:
+      matchLabels:
+        app: mysql
+    template:
+      metadata:
+        labels:
+          app: mysql
+      spec:
+        containers:
+        - name: mysql
+          image: mysql
+          env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: my-secret
+                key: password
+          ports:
+          - containerPort: 3306
+            name: mysql
+          volumeMounts:
+          - name: mysql-vol
+            mountPath:  /var/lib/mysql
+    volumeClaimTemplates:
+    - metadata:
+        name: mysql-vol
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 1Gi
